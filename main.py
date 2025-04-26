@@ -2,15 +2,16 @@ from pkg.platform.types import MessageChain
 from pkg.plugin.context import register, handler, BasePlugin, APIHost, EventContext
 from pkg.plugin.events import GroupMessageReceived
 import re
-from plugins.GroupManagerPlugin.api.group import GroupAPI
-from plugins.GroupManagerPlugin.api.message import MessageAPI
+from api.group_api import GroupAPI
+from api.message_api import MessageAPI
 
-@register(name="GroupManagerPlugin", description="QQ群管理插件，支持@全体、禁言、公告、设置群精华等功能", version="1.0", author="Grok")
+@register(name="GroupManagerPlugin", description="QQ群管理插件，支持@全体、禁言、公告、设置群精华等功能", version="0.1", author="YuWan_SAMA")
 class GroupManagerPlugin(BasePlugin):
     def __init__(self, host: APIHost):
+        super().__init__(host)  # Ensure parent class initialization
         self.group_api = GroupAPI(host="127.0.0.1", port=3000)
         self.message_api = MessageAPI(host="127.0.0.1", port=3000)
-        self.ap.logger.info("GroupManagerPlugin initialized")
+        self.logger.info("GroupManagerPlugin initialized")  # Use self.logger instead of self.ap.logger
 
     async def initialize(self):
         pass
@@ -36,7 +37,7 @@ class GroupManagerPlugin(BasePlugin):
                     "type": "at",
                     "data": {"qq": "all"}
                 }, " 全体成员"]))
-                self.ap.logger.info(f"Sent @all in group {group_id}")
+                self.logger.info(f"Sent @all in group {group_id}")
 
             elif command[1] == "mute":
                 if len(command) < 4:
@@ -46,7 +47,7 @@ class GroupManagerPlugin(BasePlugin):
                 duration = int(command[3]) * 60  # Convert minutes to seconds
                 await self.group_api.mute_group_member(group_id, target_qq, duration)
                 await self.message_api.send_group_message(group_id, MessageChain([f"已禁言 {target_qq} {command[3]}分钟"]))
-                self.ap.logger.info(f"Muted {target_qq} in group {group_id} for {duration} seconds")
+                self.logger.info(f"Muted {target_qq} in group {group_id} for {duration} seconds")
 
             elif command[1] == "unmute":
                 if len(command) < 3:
@@ -55,7 +56,7 @@ class GroupManagerPlugin(BasePlugin):
                 target_qq = command[2]
                 await self.group_api.mute_group_member(group_id, target_qq, 0)
                 await self.message_api.send_group_message(group_id, MessageChain([f"已解除 {target_qq} 的禁言"]))
-                self.ap.logger.info(f"Unmuted {target_qq} in group {group_id}")
+                self.logger.info(f"Unmuted {target_qq} in group {group_id}")
 
             elif command[1] == "announce":
                 if len(command) < 3:
@@ -64,7 +65,7 @@ class GroupManagerPlugin(BasePlugin):
                 content = " ".join(command[2:])
                 await self.group_api.set_group_notice(group_id, content)
                 await self.message_api.send_group_message(group_id, MessageChain(["公告已发布"]))
-                self.ap.logger.info(f"Set announcement in group {group_id}")
+                self.logger.info(f"Set announcement in group {group_id}")
 
             elif command[1] == "essence":
                 if len(command) < 3:
@@ -73,14 +74,14 @@ class GroupManagerPlugin(BasePlugin):
                 message_id = command[2]
                 await self.group_api.set_essence_message(group_id, message_id)
                 await self.message_api.send_group_message(group_id, MessageChain(["已设置群精华消息"]))
-                self.ap.logger.info(f"Set essence message {message_id} in group {group_id}")
+                self.logger.info(f"Set essence message {message_id} in group {group_id}")
 
             else:
                 await self.message_api.send_group_message(group_id, MessageChain(["未知命令。支持: atall, mute, unmute, announce, essence"]))
 
         except Exception as e:
             await self.message_api.send_group_message(group_id, MessageChain([f"错误: {str(e)}"]))
-            self.ap.logger.error(f"Error processing command in group {group_id}: {str(e)}")
+            self.logger.error(f"Error processing command in group {group_id}: {str(e)}")
 
     def __del__(self):
-        self.ap.logger.info("GroupManagerPlugin unloaded")
+        self.logger.info("GroupManagerPlugin unloaded")  # Use self.logger instead of self.ap.logger
