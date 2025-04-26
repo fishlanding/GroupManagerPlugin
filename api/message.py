@@ -13,7 +13,7 @@ class MessageAPI:
         """
         payload = {
             "group_id": group_id,
-            "message": message_chain
+            "message": message_chain.to_dict() if hasattr(message_chain, 'to_dict') else str(message_chain)
         }
         headers = {'Content-Type': 'application/json'}
         async with aiohttp.ClientSession() as session:
