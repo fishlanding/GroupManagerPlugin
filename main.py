@@ -1,4 +1,4 @@
-from pkg.platform.types import MessageChain
+from pkg.platform.types import MessageChain, AtAll
 from pkg.plugin.context import register, handler, llm_func, BasePlugin, APIHost, EventContext
 from pkg.plugin.events import *  
 from pkg.platform.types import *
@@ -34,10 +34,10 @@ class GroupManagerPlugin(BasePlugin):
 
         try:
             if command[1] == "atall":
-                await self.message_api.send_group_message(group_id, MessageChain([{
-                    "type": "at",
-                    "data": {"qq": "all"}
-                }, " 全体成员"]))
+                await self.message_api.send_group_message(group_id, MessageChain([
+                    AtAll(),
+                    " 全体成员"
+                ]))
 
             elif command[1] == "mute":
                 if len(command) < 4:
