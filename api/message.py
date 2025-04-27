@@ -1,6 +1,6 @@
 import aiohttp
 import json
-from pkg.platform.types import MessageChain, Plain, Image, Voice, Face, Json, Reply
+from pkg.platform.types import MessageChain, Plain, Image, Voice
 
 class MessageAPI:
     def __init__(self, host: str, port: int):
@@ -39,32 +39,32 @@ class MessageAPI:
         message_chain = MessageChain([Voice(url=voice_url)])
         return await self.send_group_message(group_id, message_chain)
 
-    async def send_group_face(self, group_id: str, face_id: str):
-        """
-        发送群系统表情。
-        参考: /send_group_msg
-        """
-        message_chain = MessageChain([Face(id=face_id)])
-        return await self.send_group_message(group_id, message_chain)
+    # async def send_group_face(self, group_id: str, face_id: str):
+    #     """
+    #     发送群系统表情。
+    #     参考: /send_group_msg
+    #     """
+    #     message_chain = MessageChain([(id=face_id)])
+    #     return await self.send_group_message(group_id, message_chain)
 
-    async def send_group_json(self, group_id: str, json_content: str):
-        """
-        发送群JSON消息。
-        参考: /send_group_msg
-        """
-        message_chain = MessageChain([Json(data=json_content)])
-        return await self.send_group_message(group_id, message_chain)
+    # async def send_group_json(self, group_id: str, json_content: str):
+    #     """
+    #     发送群JSON消息。
+    #     参考: /send_group_msg
+    #     """
+    #     message_chain = MessageChain([Json(data=json_content)])
+    #     return await self.send_group_message(group_id, message_chain)
 
-    async def send_group_reply(self, group_id: str, message_id: str, content: str):
-        """
-        发送群回复消息。
-        参考: /send_group_msg
-        """
-        message_chain = MessageChain([
-            Reply(message_id=message_id),
-            Plain(text=content)
-        ])
-        return await self.send_group_message(group_id, message_chain)
+    # async def send_group_reply(self, group_id: str, message_id: str, content: str):
+    #     """
+    #     发送群回复消息。
+    #     参考: /send_group_msg
+    #     """
+    #     message_chain = MessageChain([
+    #         Reply(message_id=message_id),
+    #         Plain(text=content)
+    #     ])
+    #     return await self.send_group_message(group_id, message_chain)
 
     async def recall_group_message(self, group_id: str, message_id: str):
         """

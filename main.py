@@ -1,7 +1,7 @@
 from pkg.plugin.context import register, handler, llm_func, BasePlugin, APIHost, EventContext
 from pkg.plugin.events import *
 from pkg.platform.types import *
-import re
+import yaml
 from plugins.GroupManagerPlugin.api.group import GroupAPI
 from plugins.GroupManagerPlugin.api.message import MessageAPI
 
@@ -13,29 +13,56 @@ class GroupManagerPlugin(BasePlugin):
         # 初始化 API 模块
         self.group_api = GroupAPI(host="127.0.0.1", port=3000)
         self.message_api = MessageAPI(host="127.0.0.1", port=3000)
+        # 加载配置文件
+        self.config = self.load_config()
+
+    def load_config(self) -> dict:
+        """加载并验证配置文件"""
+        default_config = {"admin": []}
+        try:
+            with open("settings.yaml", "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or default_config
+                if not isinstance(data, dict):
+                    print("配置文件格式错误，使用默认配置")
+                    return default_config
+                # 验证 admin 字段
+                if "admin" not in data:
+                    data["admin"] = []
+                if not isinstance(data["admin"], list):
+                    print("admin 字段必须为列表，使用默认配置")
+                    data["admin"] = []
+                # 确保 admin 列表中的元素是字符串
+                data["admin"] = [str(item) for item in data["admin"]]
+                return data
+        except FileNotFoundError:
+            print("配置文件不存在，使用默认配置")
+            return default_config
+        except Exception as e:
+            print(f"加载配置文件失败: {str(e)}")
+            return default_config
 
     async def initialize(self):
         # 插件初始化
         pass
 
-    @handler(GroupCommandSent)
+    @handler(GroupMessageReceived)
     async def group_command_sent(self, ctx: EventContext):
         event = ctx.event
-        msg = event.text_message.strip()
+        msg = str(event.message_chain).strip()
         group_id = str(event.launcher_id)
-        sender_id = str(event.sender_id)
+        sender_id = int(event.sender_id)
 
-        # 检查管理员权限
-        if event is None or not event.is_admin:
-            cmd = msg.split()[0] if msg else "/"
-            await self.message_api.send_group_message(
-                group_id,
-                MessageChain([f"执行 {cmd} 失败: 需要管理员权限"])
-            )
+        # 检查消息是否以 /group 开头
+        if not msg.startswith("/group"):
+            return
+
+        # 验证管理员权限
+        if sender_id not in self.config["admin"]:
+            await self.message_api.send_group_message(group_id, MessageChain(["权限不足，仅管理员可执行指令"]))
             return
 
         command = msg.lower().split()
-        if len(command) < 1 or command[0] != "/group":
+        if len(command) < 1:
             return
 
         if len(command) < 2:
@@ -294,35 +321,6 @@ class GroupManagerPlugin(BasePlugin):
 
         except Exception as e:
             await self.message_api.send_group_message(group_id, MessageChain([f"错误: {str(e)}"]))
-
-    @handler(GroupCommandSent)
-    async def handle_group_request_command(self, ctx: EventContext):
-        event = ctx.event
-        msg = event.text_message.strip()
-        group_id = str(event.launcher_id)
-        sender_id = str(event.sender_id)
-
-        if event is None or not event.is_admin:
-            return
-
-        command = msg.lower().split()
-        if len(command) < 2 or command[1] not in ["approve", "reject"]:
-            return
-
-        try:
-            cmd = command[1]
-            if cmd in ["approve", "reject"]:
-                if len(command) < 4:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group approve|reject <QQ号> <flag>"]))
-                    return
-                target_qq = command[2]
-                flag = command[3]
-                approve = cmd == "approve"
-                await self.group_api.handle_group_request(flag, approve)
-                action = "通过" if approve else "拒绝"
-                await self.message_api.send_group_message(group_id, MessageChain([f"已{action} {target_qq} 的加群请求"]))
-        except Exception as e:
-            await self.message_api.send_group_message(group_id, MessageChain([f"处理加群请求失败: {str(e)}"]))
 
     def __del__(self):
         # 清理资源
