@@ -51,7 +51,6 @@ class GroupManagerPlugin(BasePlugin):
         msg = str(event.message_chain).strip()
         group_id = str(event.launcher_id)
         sender_id = int(event.sender_id)
-        
 
         # 检查消息是否以 /group 开头
         if not msg.startswith("/group"):
@@ -59,7 +58,7 @@ class GroupManagerPlugin(BasePlugin):
 
         # 验证管理员权限
         if sender_id not in self.config["admin"]:
-            await self.message_api.send_group_message(group_id, MessageChain(["权限不足，仅管理员可执行指令"]))
+            await self.message_api.send_group_msg(group_id, MessageChain(["权限不足，仅管理员可执行指令"]))
             print(f"完整sender_id: {sender_id}")
             return
 
@@ -68,7 +67,7 @@ class GroupManagerPlugin(BasePlugin):
             return
 
         if len(command) < 2:
-            await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group [command] [参数]"]))
+            await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group [command] [参数]"]))
             return
 
         try:
@@ -82,6 +81,8 @@ class GroupManagerPlugin(BasePlugin):
                     "/group unmute <QQ号> - 解除禁言\n"
                     "/group announce <内容> - 发布公告\n"
                     "/group essence <消息ID> - 设置精华消息\n"
+                    "/group essencelist - 查看群精华消息列表\n"
+                    "/group honor - 查看群荣誉信息\n"
                     "/group info - 查看群信息\n"
                     "/group members - 查看群成员列表\n"
                     "/group kick <QQ号> - 踢出成员\n"
@@ -102,51 +103,86 @@ class GroupManagerPlugin(BasePlugin):
                     "/group uploadfile <文件URL> - 上传群文件\n"
                     "/group ocr <图片URL> - 图片OCR识别\n"
                     "/group typing - 设置输入状态\n"
-                    "/group sendtext <内容> - 发送纯文本消息"
+                    "/group sendtext <内容> - 发送纯文本消息\n"
+                    "/group forward <消息1> | <消息2> | ... - 发送合并转发消息"
                 )
-                await self.message_api.send_group_message(group_id, MessageChain([help_text]))
+                await self.message_api.send_group_msg(group_id, MessageChain([help_text]))
 
             elif cmd == "atall":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group atall <消息内容>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group atall <消息内容>"]))
                     return
-                await self.message_api.send_group_message(group_id, MessageChain([
+                await self.message_api.send_group_msg(group_id, MessageChain([
                     AtAll(),
                     Plain(" ".join(command[2:]))
                 ]))
 
             elif cmd == "mute":
                 if len(command) < 4:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group mute <QQ号> <分钟>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group mute <QQ号> <分钟>"]))
                     return
                 target_qq = command[2]
                 duration = int(command[3]) * 60  # 转换为秒
                 await self.group_api.mute_group_member(group_id, target_qq, duration)
-                await self.message_api.send_group_message(group_id, MessageChain([f"已禁言 {target_qq} {command[3]}分钟"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"已禁言 {target_qq} {command[3]}分钟"]))
 
             elif cmd == "unmute":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group unmute <QQ号>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group unmute <QQ号>"]))
                     return
                 target_qq = command[2]
                 await self.group_api.mute_group_member(group_id, target_qq, 0)
-                await self.message_api.send_group_message(group_id, MessageChain([f"已解除 {target_qq} 的禁言"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"已解除 {target_qq} 的禁言"]))
 
             elif cmd == "announce":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group announce <公告内容>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group announce <公告内容>"]))
                     return
                 content = " ".join(command[2:])
                 await self.group_api.send_group_notice(group_id, content)
-                await self.message_api.send_group_message(group_id, MessageChain(["公告已发布"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["公告已发布"]))
 
             elif cmd == "essence":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group essence <消息ID>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group essence <消息ID>"]))
                     return
                 message_id = command[2]
                 await self.group_api.set_essence_message(group_id, message_id)
-                await self.message_api.send_group_message(group_id, MessageChain(["已设置群精华消息"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["已设置群精华消息"]))
+
+            elif cmd == "essencelist":
+                essence_list = await self.group_api.get_essence_msg_list(group_id)
+                if not essence_list.get('data'):
+                    await self.message_api.send_group_msg(group_id, MessageChain(["当前群无精华消息"]))
+                    return
+                essence_msgs = [
+                    f"消息ID: {m['message_id']}, 发送者: {m['sender_id']} ({m['nickname']}), 时间: {m['description']}"
+                    for m in essence_list['data'][:10]  # 限制显示前10条
+                ]
+                essence_str = "\n".join(essence_msgs)
+                await self.message_api.send_group_msg(group_id, MessageChain([f"群精华消息列表（前10条）:\n{essence_str}"]))
+
+            elif cmd == "honor":
+                honor_info = await self.group_api.get_group_honor_info(group_id)
+                honor_data = honor_info.get('data', {})
+                honor_msg = []
+                if honor_data.get('talkative_list'):
+                    talkative = honor_data['talkative_list'][0]
+                    honor_msg.append(f"龙王: {talkative['user_id']} ({talkative['nickname']})")
+                if honor_data.get('performer_list'):
+                    performer = honor_data['performer_list'][0]
+                    honor_msg.append(f"群聊之火: {performer['user_id']} ({performer['nickname']})")
+                if honor_data.get('legend_list'):
+                    legend = honor_data['legend_list'][0]
+                    honor_msg.append(f"群聊炽焰: {legend['user_id']} ({legend['nickname']})")
+                if honor_data.get('strong_newbie_list'):
+                    newbie = honor_data['strong_newbie_list'][0]
+                    honor_msg.append(f"冒尖小春笋: {newbie['user_id']} ({newbie['nickname']})")
+                if honor_data.get('emotion_list'):
+                    emotion = honor_data['emotion_list'][0]
+                    honor_msg.append(f"快乐源泉: {emotion['user_id']} ({emotion['nickname']})")
+                honor_str = "\n".join(honor_msg) if honor_msg else "暂无群荣誉信息"
+                await self.message_api.send_group_msg(group_id, MessageChain([f"群荣誉信息:\n{honor_str}"]))
 
             elif cmd == "info":
                 group_info = await self.group_api.get_group_info(group_id)
@@ -156,173 +192,186 @@ class GroupManagerPlugin(BasePlugin):
                     f"成员数: {group_info['member_count']}\n"
                     f"最大成员数: {group_info['max_member_count']}"
                 )
-                await self.message_api.send_group_message(group_id, MessageChain([info_msg]))
+                await self.message_api.send_group_msg(group_id, MessageChain([info_msg]))
 
             elif cmd == "members":
                 member_list = await self.group_api.get_group_member_list(group_id)
                 members = [f"{m['user_id']} ({m['nickname']})" for m in member_list['data']]
                 members_str = "\n".join(members[:20])  # 限制显示前20个成员
-                await self.message_api.send_group_message(group_id, MessageChain([f"群成员（前20个）:\n{members_str}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"群成员（前20个）:\n{members_str}"]))
 
             elif cmd == "kick":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group kick <QQ号>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group kick <QQ号>"]))
                     return
                 target_qq = command[2]
                 await self.group_api.kick_group_member(group_id, target_qq)
-                await self.message_api.send_group_message(group_id, MessageChain([f"已踢出 {target_qq}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"已踢出 {target_qq}"]))
 
             elif cmd == "setadmin":
                 if len(command) < 4:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group setadmin <QQ号> <true|false>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group setadmin <QQ号> <true|false>"]))
                     return
                 target_qq = command[2]
                 enable = command[3].lower() == "true"
                 await self.group_api.set_group_admin(group_id, target_qq, enable)
                 action = "设置" if enable else "取消"
-                await self.message_api.send_group_message(group_id, MessageChain([f"已{action} {target_qq} 的管理员权限"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"已{action} {target_qq} 的管理员权限"]))
 
             elif cmd == "setname":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group setname <新群名>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group setname <新群名>"]))
                     return
                 new_name = " ".join(command[2:])
                 await self.group_api.set_group_name(group_id, new_name)
-                await self.message_api.send_group_message(group_id, MessageChain([f"群名已修改为 {new_name}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"群名已修改为 {new_name}"]))
 
             elif cmd == "settitle":
                 if len(command) < 4:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group settitle <QQ号> <头衔>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group settitle <QQ号> <头衔>"]))
                     return
                 target_qq = command[2]
                 title = " ".join(command[3:])
                 await self.group_api.set_group_special_title(group_id, target_qq, title)
-                await self.message_api.send_group_message(group_id, MessageChain([f"已为 {target_qq} 设置头衔: {title}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"已为 {target_qq} 设置头衔: {title}"]))
 
             elif cmd == "atallcount":
                 at_all_info = await self.group_api.get_group_at_all_remain(group_id)
                 remain = at_all_info.get('data', {}).get('remain', 0)
-                await self.message_api.send_group_message(group_id, MessageChain([f"群@全体剩余次数: {remain}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"群@全体剩余次数: {remain}"]))
 
             elif cmd == "mutelist":
-                mute_list = await self.group_api.get_group_mute_list(group_id)
+                mute_list = await self.group_api.get_group_shut_list(group_id)
                 muted = [f"{m['user_id']} ({m['nickname']})" for m in mute_list['data'] if m['shut_up_timestamp'] > 0]
                 mute_str = "\n".join(muted[:20]) if muted else "无禁言成员"
-                await self.message_api.send_group_message(group_id, MessageChain([f"群禁言列表（前20个）:\n{mute_str}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"群禁言列表（前20个）:\n{mute_str}"]))
 
             elif cmd == "poke":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group poke <QQ号>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group poke <QQ号>"]))
                     return
                 target_qq = command[2]
                 await self.group_api.send_group_poke(group_id, target_qq)
-                await self.message_api.send_group_message(group_id, MessageChain([f"已戳一戳 {target_qq}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"已戳一戳 {target_qq}"]))
 
             elif cmd == "like":
                 if len(command) < 4:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group like <QQ号> <次数>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group like <QQ号> <次数>"]))
                     return
                 target_qq = command[2]
                 times = int(command[3])
                 await self.group_api.send_like(target_qq, times)
-                await self.message_api.send_group_message(group_id, MessageChain([f"已为 {target_qq} 点赞 {times} 次"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"已为 {target_qq} 点赞 {times} 次"]))
 
             elif cmd == "sendimg":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group sendimg <图片URL>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group sendimg <图片URL>"]))
                     return
                 image_url = command[2]
                 await self.message_api.send_group_image(group_id, image_url)
-                await self.message_api.send_group_message(group_id, MessageChain(["图片已发送"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["图片已发送"]))
 
             elif cmd == "sendvoice":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group sendvoice <语音URL>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group sendvoice <语音URL>"]))
                     return
                 voice_url = command[2]
                 await self.message_api.send_group_voice(group_id, voice_url)
-                await self.message_api.send_group_message(group_id, MessageChain(["语音已发送"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["语音已发送"]))
 
             elif cmd == "sendface":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group sendface <表情ID>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group sendface <表情ID>"]))
                     return
                 face_id = command[2]
-                await self.message_api.send_group_face(group_id, face_id)
-                await self.message_api.send_group_message(group_id, MessageChain(["系统表情已发送"]))
+                await self.message_api.send_group_msg(group_id, face_id)
+                await self.message_api.send_group_msg(group_id, MessageChain(["系统表情已发送"]))
 
             elif cmd == "sendjson":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group sendjson <JSON内容>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group sendjson <JSON内容>"]))
                     return
                 json_content = " ".join(command[2:])
                 await self.message_api.send_group_json(group_id, json_content)
-                await self.message_api.send_group_message(group_id, MessageChain(["JSON消息已发送"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["JSON消息已发送"]))
 
             elif cmd == "reply":
                 if len(command) < 4:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group reply <消息ID> <内容>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group reply <消息ID> <内容>"]))
                     return
                 message_id = command[2]
                 content = " ".join(command[3:])
                 await self.message_api.send_group_reply(group_id, message_id, content)
-                await self.message_api.send_group_message(group_id, MessageChain(["回复消息已发送"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["回复消息已发送"]))
 
             elif cmd == "recall":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group recall <消息ID>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group recall <消息ID>"]))
                     return
                 message_id = command[2]
                 await self.message_api.recall_group_message(group_id, message_id)
-                await self.message_api.send_group_message(group_id, MessageChain(["消息已撤回"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["消息已撤回"]))
 
             elif cmd == "movefile":
                 if len(command) < 4:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group movefile <文件ID> <目标目录>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group movefile <文件ID> <目标目录>"]))
                     return
                 file_id = command[2]
                 target_dir = command[3]
                 await self.group_api.move_group_file(group_id, file_id, target_dir)
-                await self.message_api.send_group_message(group_id, MessageChain(["群文件已移动"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["群文件已移动"]))
 
             elif cmd == "uploadfile":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group uploadfile <文件URL>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group uploadfile <文件URL>"]))
                     return
                 file_url = command[2]
                 await self.group_api.upload_group_file(group_id, file_url)
-                await self.message_api.send_group_message(group_id, MessageChain(["群文件已上传"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["群文件已上传"]))
 
             elif cmd == "ocr":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group ocr <图片URL>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group ocr <图片URL>"]))
                     return
                 image_url = command[2]
                 ocr_result = await self.message_api.ocr_image(image_url)
-                await self.message_api.send_group_message(group_id, MessageChain([f"OCR识别结果:\n{ocr_result}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"OCR识别结果:\n{ocr_result}"]))
 
             elif cmd == "typing":
                 await self.group_api.set_typing_status(group_id)
-                await self.message_api.send_group_message(group_id, MessageChain(["已设置输入状态"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["已设置输入状态"]))
 
             elif cmd == "sendtext":
                 if len(command) < 3:
-                    await self.message_api.send_group_message(group_id, MessageChain(["使用方法: /group sendtext <内容>"]))
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group sendtext <内容>"]))
                     return
                 content = " ".join(command[2:])
                 await self.message_api.send_group_text(group_id, content)
-                await self.message_api.send_group_message(group_id, MessageChain(["文本消息已发送"]))
+                await self.message_api.send_group_msg(group_id, MessageChain(["文本消息已发送"]))
+
+            elif cmd == "forward":
+                if len(command) < 3:
+                    await self.message_api.send_group_msg(group_id, MessageChain(["使用方法: /group forward <消息1> | <消息2> | ..."]))
+                    return
+                # 将命令参数按 | 分割为多条消息
+                messages = " ".join(command[2:]).split("|")
+                messages = [msg.strip() for msg in messages if msg.strip()]  # 去除空消息
+                if not messages:
+                    await self.message_api.send_group_msg(group_id, MessageChain(["请提供至少一条消息"]))
+                    return
+                await self.message_api.send_group_forward_message(group_id, messages, sender_id)
+                await self.message_api.send_group_msg(group_id, MessageChain(["合并转发消息已发送"]))
 
             else:
                 supported = (
-                    "help, atall, mute, unmute, announce, essence, info, members, kick, setadmin, "
+                    "help, atall, mute, unmute, announce, essence, essencelist, honor, info, members, kick, setadmin, "
                     "setname, settitle, atallcount, mutelist, poke, like, sendimg, sendvoice, "
-                    "sendface, sendjson, reply, recall, movefile, uploadfile, ocr, typing, sendtext"
+                    "sendface, sendjson, reply, recall, movefile, uploadfile, ocr, typing, sendtext, forward"
                 )
-                await self.message_api.send_group_message(group_id, MessageChain([f"未知命令。支持: {supported}"]))
+                await self.message_api.send_group_msg(group_id, MessageChain([f"未知命令。支持: {supported}"]))
 
         except Exception as e:
-            await self.message_api.send_group_message(group_id, MessageChain([f"错误: {str(e)}"]))
+            await self.message_api.send_group_msg(group_id, MessageChain([f"错误: {str(e)}"]))
 
     def __del__(self):
         # 清理资源

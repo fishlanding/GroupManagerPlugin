@@ -6,7 +6,7 @@ class MessageAPI:
     def __init__(self, host: str, port: int):
         self.url = f"http://{host}:{port}"
 
-    async def send_group_message(self, group_id: str, message_chain: MessageChain):
+    async def send_group_msg(self, group_id: str, message_chain: MessageChain):
         """
         发送群消息。
         参考: /send_group_msg
@@ -29,7 +29,7 @@ class MessageAPI:
         参考: /send_group_msg
         """
         message_chain = MessageChain([Image(url=image_url)])
-        return await self.send_group_message(group_id, message_chain)
+        return await self.send_group_msg(group_id, message_chain)
 
     async def send_group_voice(self, group_id: str, voice_url: str):
         """
@@ -37,34 +37,37 @@ class MessageAPI:
         参考: /send_group_msg
         """
         message_chain = MessageChain([Voice(url=voice_url)])
-        return await self.send_group_message(group_id, message_chain)
+        return await self.send_group_msg(group_id, message_chain)
 
-    # async def send_group_face(self, group_id: str, face_id: str):
-    #     """
-    #     发送群系统表情。
-    #     参考: /send_group_msg
-    #     """
-    #     message_chain = MessageChain([(id=face_id)])
-    #     return await self.send_group_message(group_id, message_chain)
-
-    # async def send_group_json(self, group_id: str, json_content: str):
-    #     """
-    #     发送群JSON消息。
-    #     参考: /send_group_msg
-    #     """
-    #     message_chain = MessageChain([Json(data=json_content)])
-    #     return await self.send_group_message(group_id, message_chain)
-
-    # async def send_group_reply(self, group_id: str, message_id: str, content: str):
-    #     """
-    #     发送群回复消息。
-    #     参考: /send_group_msg
-    #     """
-    #     message_chain = MessageChain([
-    #         Reply(message_id=message_id),
-    #         Plain(text=content)
-    #     ])
-    #     return await self.send_group_message(group_id, message_chain)
+    async def send_group_forward_message(self, group_id: str, messages: list, sender_id: int):
+        """
+        发送群合并转发消息。
+        参考: /send_group_forward_msg
+        """
+        # 构造转发消息节点
+        forward_messages = [
+            {
+                "type": "node",
+                "data": {
+                    "user_id": str(sender_id),
+                    "nickname": "GroupManagerBot",
+                    "content": [
+                        {"type": "text", "data": {"text": msg}}
+                    ]
+                }
+            } for msg in messages
+        ]
+        payload = {
+            "group_id": group_id,
+            "messages": forward_messages
+        }
+        headers = {'Content-Type': 'application/json'}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{self.url}/send_group_forward_msg", data=json.dumps(payload), headers=headers) as response:
+                result = await response.json()
+                if response.status != 200:
+                    raise Exception(f"发送合并转发消息失败: {result.get('message', '未知错误')}")
+                return result
 
     async def recall_group_message(self, group_id: str, message_id: str):
         """
@@ -104,4 +107,4 @@ class MessageAPI:
         参考: /send_group_msg
         """
         message_chain = MessageChain([Plain(text=content)])
-        return await self.send_group_message(group_id, message_chain)
+        return await self.send_group_msg(group_id, message_chain)

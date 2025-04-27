@@ -59,6 +59,33 @@ class GroupAPI:
                     raise Exception(f"设置精华消息失败: {result.get('message', '未知错误')}")
                 return result
 
+    async def get_essence_msg_list(self, group_id: str):
+        """
+        获取群精华消息列表。
+        参考: /get_essence_msg_list
+        """
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{self.url}/get_essence_msg_list?group_id={group_id}") as response:
+                result = await response.json()
+                if response.status != 200:
+                    raise Exception(f"获取精华消息列表失败: {result.get('message', '未知错误')}")
+                # 返回 talkative_list 作为 data 字段以保持兼容
+                if result.get('data') and 'talkative_list' in result['data']:
+                    result['data'] = result['data']['talkative_list']
+                return result
+
+    async def get_group_honor_info(self, group_id: str):
+        """
+        获取群荣誉信息（如龙王、群聊之火等）。
+        参考: /get_group_honor_info
+        """
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{self.url}/get_group_honor_info?group_id={group_id}") as response:
+                result = await response.json()
+                if response.status != 200:
+                    raise Exception(f"获取群荣誉信息失败: {result.get('message', '未知错误')}")
+                return result
+
     async def get_group_info(self, group_id: str):
         """
         获取群信息。
@@ -167,13 +194,13 @@ class GroupAPI:
                     raise Exception(f"获取@全体剩余次数失败: {result.get('message', '未知错误')}")
                 return result
 
-    async def get_group_mute_list(self, group_id: str):
+    async def get_group_shut_list(self, group_id: str):
         """
         获取群禁言列表。
-        参考: /get_group_mute_list
+        参考: /get_group_shut_list
         """
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{self.url}/get_group_mute_list?group_id={group_id}") as response:
+            async with session.get(f"{self.url}/get_group_shut_list?group_id={group_id}") as response:
                 result = await response.json()
                 if response.status != 200:
                     raise Exception(f"获取禁言列表失败: {result.get('message', '未知错误')}")
