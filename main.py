@@ -5,7 +5,7 @@ import yaml
 from plugins.GroupManagerPlugin.api.group import GroupAPI
 from plugins.GroupManagerPlugin.api.message import MessageAPI
 
-@register(name="GroupManagerPlugin", description="QQ群管理插件，支持多种群聊管理功能", version="0.4", author="YuWan_SAMA")
+@register(name="GroupManagerPlugin", description="基于LangBot-NapCat的QQ群管理插件，支持多种群聊管理功能", version="0.5", author="YuWan_SAMA")
 class GroupManagerPlugin(BasePlugin):
     def __init__(self, host: APIHost):
         super().__init__(host)
@@ -20,7 +20,7 @@ class GroupManagerPlugin(BasePlugin):
         """加载并验证配置文件"""
         default_config = {"admin": []}
         try:
-            with open("settings.yaml", "r", encoding="utf-8") as f:
+            with open("plugins/GroupManagerPlugin/settings.yaml", "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or default_config
                 if not isinstance(data, dict):
                     print("配置文件格式错误，使用默认配置")
@@ -32,7 +32,7 @@ class GroupManagerPlugin(BasePlugin):
                     print("admin 字段必须为列表，使用默认配置")
                     data["admin"] = []
                 # 确保 admin 列表中的元素是字符串
-                data["admin"] = [str(item) for item in data["admin"]]
+                data["admin"] = [int(item) for item in data["admin"]]
                 return data
         except FileNotFoundError:
             print("配置文件不存在，使用默认配置")
@@ -51,6 +51,7 @@ class GroupManagerPlugin(BasePlugin):
         msg = str(event.message_chain).strip()
         group_id = str(event.launcher_id)
         sender_id = int(event.sender_id)
+        
 
         # 检查消息是否以 /group 开头
         if not msg.startswith("/group"):
@@ -59,6 +60,7 @@ class GroupManagerPlugin(BasePlugin):
         # 验证管理员权限
         if sender_id not in self.config["admin"]:
             await self.message_api.send_group_message(group_id, MessageChain(["权限不足，仅管理员可执行指令"]))
+            print(f"完整sender_id: {sender_id}")
             return
 
         command = msg.lower().split()
